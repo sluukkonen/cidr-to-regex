@@ -5,7 +5,7 @@ Convert IPv4 and IPv6 CIDR blocks into regular expressions.
 ## Install
 
 ```bash
-npm install cidr-to-regex
+pnpm add cidr-to-regex
 ```
 
 ## Usage
@@ -32,15 +32,15 @@ const ok = regexes.some((re) => re.test("2001:0db8:0000:0000:0000:0000:0000:0001
 ## Development
 
 ```bash
-npm install
-npm run check
+pnpm install
+pnpm run check
 ```
 
 ### Fixture generation
 
 ```bash
-npm run generate:fixtures
-npm run generate:differential-fixtures
+pnpm run generate:fixtures
+pnpm run generate:differential-fixtures
 ```
 
 These scripts use Python's `ipaddress` module to generate deterministic test fixtures. The generated fixtures are committed; test execution itself is pure TypeScript.
@@ -48,7 +48,7 @@ These scripts use Python's `ipaddress` module to generate deterministic test fix
 ### Benchmark
 
 ```bash
-npm run bench
+pnpm run bench
 ```
 
 Optional environment variables:

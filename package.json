@@ -20,18 +20,19 @@
   "engines": {
     "node": ">=20"
   },
+  "packageManager": "pnpm@10.30.2",
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "npm run clean && tsc -p tsconfig.build.json",
-    "bench": "npm run build && node scripts/benchmark.mjs",
-    "lint": "npm run typecheck",
-    "check": "npm run lint && npm run test:run && npm run build",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json",
+    "bench": "pnpm run build && node scripts/benchmark.mjs",
+    "lint": "pnpm run typecheck",
+    "check": "pnpm run lint && pnpm run test:run && pnpm run build",
     "test": "vitest",
     "test:run": "vitest run",
     "typecheck": "tsc --noEmit",
     "generate:fixtures": "python3 scripts/generate-fixtures.py",
     "generate:differential-fixtures": "python3 scripts/generate-differential-fixtures.py",
-    "prepublishOnly": "npm run check"
+    "prepublishOnly": "pnpm run check"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
