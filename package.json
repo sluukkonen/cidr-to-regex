@@ -1,13 +1,37 @@
 {
   "name": "cidr-to-regex",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Convert IPv4/IPv6 CIDR blocks into regular expressions",
+  "license": "MIT",
   "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "bench": "npm run build && node scripts/benchmark.mjs",
+    "lint": "npm run typecheck",
+    "check": "npm run lint && npm run test:run && npm run build",
     "test": "vitest",
     "test:run": "vitest run",
     "typecheck": "tsc --noEmit",
-    "generate:fixtures": "python3 scripts/generate-fixtures.py"
+    "generate:fixtures": "python3 scripts/generate-fixtures.py",
+    "generate:differential-fixtures": "python3 scripts/generate-differential-fixtures.py",
+    "prepublishOnly": "npm run check"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
