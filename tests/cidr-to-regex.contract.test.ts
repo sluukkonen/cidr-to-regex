@@ -55,6 +55,18 @@ describe("cidrToRegex contract", () => {
     });
   });
 
+  describe("regex count minimization", () => {
+    it.each([
+      "10.0.0.0/23",
+      "10.0.0.0/22",
+      "2001:db8::/47",
+      "2001:db8::/33",
+      "::/1",
+    ])("returns a single regex for %s", (cidr) => {
+      expect(compile(cidr)).toHaveLength(1);
+    });
+  });
+
   describe("exact match semantics", () => {
     it("matches only exact address for IPv4 /32", () => {
       const regexes = compile("198.51.100.23/32");

@@ -17,14 +17,22 @@ export function cidrToRegex(cidr: string): RegExp[] {
     const [start, end] = normalizeRange(parsed.address, IPV4_BITS, parsed.prefix);
     const startOctets = ipv4ToOctets(start);
     const endOctets = ipv4ToOctets(end);
-    const patterns = uniquePatterns(buildIPv4Patterns(startOctets, endOctets, 0));
+    const patterns = minimizePatternSet(
+      uniquePatterns(buildIPv4Patterns(startOctets, endOctets, 0)),
+      "\\.",
+      4
+    );
     return patterns.map((pattern) => new RegExp(`^(?:${pattern})$`));
   }
 
   const [start, end] = normalizeRange(parsed.address, IPV6_BITS, parsed.prefix);
   const startHextets = ipv6ToHextets(start);
   const endHextets = ipv6ToHextets(end);
-  const patterns = uniquePatterns(buildIPv6Patterns(startHextets, endHextets, 0));
+  const patterns = minimizePatternSet(
+    uniquePatterns(buildIPv6Patterns(startHextets, endHextets, 0)),
+    ":",
+    8
+  );
   return patterns.map((pattern) => new RegExp(`^(?:${pattern})$`, "i"));
 }
 
@@ -532,4 +540,113 @@ function orPattern(parts: string[]): string {
 
 function uniquePatterns(parts: string[]): string[] {
   return [...new Set(parts)];
+}
+
+function minimizePatternSet(
+  patterns: string[],
+  separator: string,
+  segmentCount: number
+): string[] {
+  if (patterns.length <= 1) {
+    return patterns;
+  }
+
+  let rows = uniquePatternRows(patterns.map((pattern) => splitPattern(pattern, separator, segmentCount)));
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let index = 0; index < segmentCount; index += 1) {
+      const grouped = new Map<string, { template: string[]; variants: string[] }>();
+
+      for (const row of rows) {
+        const keyParts = row.slice();
+        keyParts[index] = "\u0000";
+        const key = keyParts.join("\u0001");
+        const existing = grouped.get(key);
+        if (existing) {
+          existing.variants.push(row[index]);
+        } else {
+          grouped.set(key, { template: row.slice(), variants: [row[index]] });
+        }
+      }
+
+      const mergedRows: string[][] = [];
+      for (const entry of grouped.values()) {
+        const variants = uniquePatterns(entry.variants);
+        const merged = variants.length === 1 ? variants[0] : orPattern(variants);
+        if (variants.length > 1) {
+          changed = true;
+        }
+        const next = entry.template.slice();
+        next[index] = merged;
+        mergedRows.push(next);
+      }
+
+      rows = uniquePatternRows(mergedRows);
+    }
+  }
+
+  return rows.map((row) => row.join(separator));
+}
+
+function splitPattern(pattern: string, separator: string, segmentCount: number): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  let parenDepth = 0;
+  let inCharClass = false;
+  let escaped = false;
+
+  for (let i = 0; i < pattern.length; i += 1) {
+    if (!escaped && !inCharClass && parenDepth === 0 && pattern.startsWith(separator, i)) {
+      parts.push(pattern.slice(start, i));
+      i += separator.length - 1;
+      start = i + 1;
+      continue;
+    }
+
+    const char = pattern[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (inCharClass) {
+      if (char === "]") {
+        inCharClass = false;
+      }
+      continue;
+    }
+    if (char === "[") {
+      inCharClass = true;
+      continue;
+    }
+    if (char === "(") {
+      parenDepth += 1;
+      continue;
+    }
+    if (char === ")" && parenDepth > 0) {
+      parenDepth -= 1;
+    }
+  }
+
+  parts.push(pattern.slice(start));
+  if (parts.length !== segmentCount) {
+    throw new Error("Internal pattern split error");
+  }
+  return parts;
+}
+
+function uniquePatternRows(rows: string[][]): string[][] {
+  const out = new Map<string, string[]>();
+  for (const row of rows) {
+    const key = row.join("\u0002");
+    if (!out.has(key)) {
+      out.set(key, row);
+    }
+  }
+  return [...out.values()];
 }
