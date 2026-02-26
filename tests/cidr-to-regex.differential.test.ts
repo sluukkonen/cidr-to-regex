@@ -54,9 +54,9 @@ describe("cidrToRegex differential fixtures", () => {
         assertEquivalentOnSamples(
           regexes,
           normalized,
-          entry.samples.flatMap((sample) => [sample.addr, sample.padded])
+          entry.samples.flatMap((sample) => [sample.addr, sample.padded]),
         );
-      }
+      },
     );
   });
 
@@ -75,9 +75,9 @@ describe("cidrToRegex differential fixtures", () => {
         assertEquivalentOnSamples(
           regexes,
           normalized,
-          entry.samples.flatMap((sample) => [sample.addr, sample.upper])
+          entry.samples.flatMap((sample) => [sample.addr, sample.upper]),
         );
-      }
+      },
     );
   });
 });

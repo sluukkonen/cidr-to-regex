@@ -7,7 +7,7 @@ type CandidateMask = {
 export function findMinimumEquivalentSetSize(
   candidates: RegExp[],
   universe: string[],
-  targetRegexes: RegExp[]
+  targetRegexes: RegExp[],
 ): number | null {
   if (universe.length === 0) {
     return 0;

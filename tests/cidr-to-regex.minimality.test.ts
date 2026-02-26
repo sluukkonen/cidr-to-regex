@@ -30,14 +30,14 @@ describe("cidrToRegex brute-force minimality checks", () => {
     const minWithoutDirect = findMinimumEquivalentSetSize(
       childAndDecoyCandidates,
       universe,
-      target
+      target,
     );
     expect(minWithoutDirect).toBe(2);
 
     const minWithDirect = findMinimumEquivalentSetSize(
       [...childAndDecoyCandidates, ...target],
       universe,
-      target
+      target,
     );
     expect(minWithDirect).toBe(target.length);
   });
@@ -63,14 +63,14 @@ describe("cidrToRegex brute-force minimality checks", () => {
     const minWithoutDirect = findMinimumEquivalentSetSize(
       childAndDecoyCandidates,
       universe,
-      target
+      target,
     );
     expect(minWithoutDirect).toBe(2);
 
     const minWithDirect = findMinimumEquivalentSetSize(
       [...childAndDecoyCandidates, ...target],
       universe,
-      target
+      target,
     );
     expect(minWithDirect).toBe(target.length);
   });

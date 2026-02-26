@@ -5,8 +5,7 @@ type ParsedCidr =
 const IPV4_BITS = 32;
 const IPV6_BITS = 128;
 
-const IPV4_ANY_OCTET =
-  "(?:0{1,3}|0{0,2}[1-9]|0?[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])";
+const IPV4_ANY_OCTET = "(?:0{1,3}|0{0,2}[1-9]|0?[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])";
 const IPV6_ANY_HEXTET = "[0-9a-f]{4}";
 const HEX_DIGITS = "0123456789abcdef";
 
@@ -20,7 +19,7 @@ export function cidrToRegex(cidr: string): RegExp[] {
     const patterns = minimizePatternSet(
       uniquePatterns(buildIPv4Patterns(startOctets, endOctets, 0)),
       "\\.",
-      4
+      4,
     );
     return patterns.map((pattern) => new RegExp(`^(?:${pattern})$`));
   }
@@ -31,7 +30,7 @@ export function cidrToRegex(cidr: string): RegExp[] {
   const patterns = minimizePatternSet(
     uniquePatterns(buildIPv6Patterns(startHextets, endHextets, 0)),
     ":",
-    8
+    8,
   );
   return patterns.map((pattern) => new RegExp(`^(?:${pattern})$`, "i"));
 }
@@ -209,8 +208,7 @@ function parseHextetParts(parts: string[]): number[] | null {
 
 function normalizeRange(value: bigint, bits: number, prefix: number): [bigint, bigint] {
   const hostBits = bits - prefix;
-  const prefixMask =
-    prefix === 0 ? 0n : ((1n << BigInt(prefix)) - 1n) << BigInt(hostBits);
+  const prefixMask = prefix === 0 ? 0n : ((1n << BigInt(prefix)) - 1n) << BigInt(hostBits);
   const hostMask = hostBits === 0 ? 0n : (1n << BigInt(hostBits)) - 1n;
   const start = value & prefixMask;
   const end = start | hostMask;
@@ -250,7 +248,7 @@ function buildIPv4Patterns(start: number[], end: number[], index: number): strin
     return combineWithSuffix(
       octetRangePattern(low, high),
       buildIPv4Patterns(start, end, index + 1),
-      "\\."
+      "\\.",
     );
   }
 
@@ -265,8 +263,8 @@ function buildIPv4Patterns(start: number[], end: number[], index: number): strin
     ...combineWithSuffix(
       octetRangePattern(low, low),
       buildIPv4Patterns(start, firstEnd, index + 1),
-      "\\."
-    )
+      "\\.",
+    ),
   );
 
   if (low + 1 <= high - 1) {
@@ -284,8 +282,8 @@ function buildIPv4Patterns(start: number[], end: number[], index: number): strin
     ...combineWithSuffix(
       octetRangePattern(high, high),
       buildIPv4Patterns(lastStart, end, index + 1),
-      "\\."
-    )
+      "\\.",
+    ),
   );
 
   return uniquePatterns(patterns);
@@ -306,7 +304,7 @@ function buildIPv6Patterns(start: number[], end: number[], index: number): strin
     return combineWithSuffix(
       hextetRangePattern(low, high),
       buildIPv6Patterns(start, end, index + 1),
-      ":"
+      ":",
     );
   }
 
@@ -321,8 +319,8 @@ function buildIPv6Patterns(start: number[], end: number[], index: number): strin
     ...combineWithSuffix(
       hextetRangePattern(low, low),
       buildIPv6Patterns(start, firstEnd, index + 1),
-      ":"
-    )
+      ":",
+    ),
   );
 
   if (low + 1 <= high - 1) {
@@ -340,8 +338,8 @@ function buildIPv6Patterns(start: number[], end: number[], index: number): strin
     ...combineWithSuffix(
       hextetRangePattern(high, high),
       buildIPv6Patterns(lastStart, end, index + 1),
-      ":"
-    )
+      ":",
+    ),
   );
 
   return uniquePatterns(patterns);
@@ -356,7 +354,7 @@ function isFullRange(
   end: number[],
   fromIndex: number,
   minValue: number,
-  maxValue: number
+  maxValue: number,
 ): boolean {
   for (let i = fromIndex; i < start.length; i += 1) {
     if (start[i] !== minValue || end[i] !== maxValue) {
@@ -466,7 +464,9 @@ function hexRangeParts(low: string, high: string): string[] {
   }
 
   if (lowDigit + 1 <= highDigit - 1) {
-    parts.push(`${prefix}${hexDigitRange(lowDigit + 1, highDigit - 1)}${hexWildcard(suffixLength)}`);
+    parts.push(
+      `${prefix}${hexDigitRange(lowDigit + 1, highDigit - 1)}${hexWildcard(suffixLength)}`,
+    );
   }
 
   const upperLowTail = "0".repeat(suffixLength);
@@ -501,7 +501,7 @@ function hexDigitRange(start: number, end: number): string {
       parts.push(
         current === segmentEnd
           ? HEX_DIGITS[current]
-          : `${HEX_DIGITS[current]}-${HEX_DIGITS[segmentEnd]}`
+          : `${HEX_DIGITS[current]}-${HEX_DIGITS[segmentEnd]}`,
       );
       current = segmentEnd + 1;
       continue;
@@ -511,7 +511,7 @@ function hexDigitRange(start: number, end: number): string {
     parts.push(
       current === segmentEnd
         ? HEX_DIGITS[current]
-        : `${HEX_DIGITS[current]}-${HEX_DIGITS[segmentEnd]}`
+        : `${HEX_DIGITS[current]}-${HEX_DIGITS[segmentEnd]}`,
     );
     current = segmentEnd + 1;
   }
@@ -542,16 +542,14 @@ function uniquePatterns(parts: string[]): string[] {
   return [...new Set(parts)];
 }
 
-function minimizePatternSet(
-  patterns: string[],
-  separator: string,
-  segmentCount: number
-): string[] {
+function minimizePatternSet(patterns: string[], separator: string, segmentCount: number): string[] {
   if (patterns.length <= 1) {
     return patterns;
   }
 
-  let rows = uniquePatternRows(patterns.map((pattern) => splitPattern(pattern, separator, segmentCount)));
+  let rows = uniquePatternRows(
+    patterns.map((pattern) => splitPattern(pattern, separator, segmentCount)),
+  );
 
   let changed = true;
   while (changed) {

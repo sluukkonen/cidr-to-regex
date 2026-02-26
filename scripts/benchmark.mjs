@@ -69,7 +69,7 @@ function main() {
   const rows = CASES.map(benchmarkCase);
   const totalMs = performance.now() - started;
 
-  console.log(`cidr-to-regex benchmark`);
+  console.log("cidr-to-regex benchmark");
   console.log(`iterations=${ITERATIONS}, warmup=${WARMUP}, total=${totalMs.toFixed(1)}ms`);
   console.table(rows);
 }

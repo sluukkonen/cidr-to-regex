@@ -1,9 +1,9 @@
 import fixtures from "./fixtures/cidr-samples.json" with { type: "json" };
 import {
+  type FixtureCase,
   assertBehavior,
   assertEquivalentOnSamples,
   compile,
-  type FixtureCase,
   matchesAny,
   uppercaseIPv6,
 } from "./helpers.js";
@@ -15,8 +15,12 @@ type FixtureData = {
 };
 
 const data = fixtures as FixtureData;
-const ipv4NormalizationCases = data.ipv4.slice(0, 15).map((fixture) => [fixture.cidr, fixture] as const);
-const ipv6NormalizationCases = data.ipv6.slice(0, 20).map((fixture) => [fixture.cidr, fixture] as const);
+const ipv4NormalizationCases = data.ipv4
+  .slice(0, 15)
+  .map((fixture) => [fixture.cidr, fixture] as const);
+const ipv6NormalizationCases = data.ipv6
+  .slice(0, 20)
+  .map((fixture) => [fixture.cidr, fixture] as const);
 const ipv4FixtureCases = data.ipv4.map((fixture) => [fixture.cidr, fixture] as const);
 const ipv6FixtureCases = data.ipv6.map((fixture) => [fixture.cidr, fixture] as const);
 
@@ -56,15 +60,12 @@ describe("cidrToRegex contract", () => {
   });
 
   describe("regex count minimization", () => {
-    it.each([
-      "10.0.0.0/23",
-      "10.0.0.0/22",
-      "2001:db8::/47",
-      "2001:db8::/33",
-      "::/1",
-    ])("returns a single regex for %s", (cidr) => {
-      expect(compile(cidr)).toHaveLength(1);
-    });
+    it.each(["10.0.0.0/23", "10.0.0.0/22", "2001:db8::/47", "2001:db8::/33", "::/1"])(
+      "returns a single regex for %s",
+      (cidr) => {
+        expect(compile(cidr)).toHaveLength(1);
+      },
+    );
   });
 
   describe("exact match semantics", () => {

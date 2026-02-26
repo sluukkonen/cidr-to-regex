@@ -36,6 +36,15 @@ pnpm install
 pnpm run check
 ```
 
+Linting and formatting:
+
+```bash
+pnpm run lint
+pnpm run lint:fix
+pnpm run format
+pnpm run format:check
+```
+
 ### Fixture generation
 
 ```bash

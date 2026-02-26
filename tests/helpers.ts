@@ -32,11 +32,7 @@ export function compile(cidr: string): RegExp[] {
   return regexes;
 }
 
-export function assertBehavior(
-  regexes: RegExp[],
-  inside: string[],
-  outside: string[]
-): void {
+export function assertBehavior(regexes: RegExp[], inside: string[], outside: string[]): void {
   for (const addr of inside) {
     expect(matchesAny(regexes, addr)).toBe(true);
     expect(matchesAny(regexes, `x${addr}`)).toBe(false);
@@ -50,7 +46,7 @@ export function assertBehavior(
 export function assertEquivalentOnSamples(
   left: RegExp[],
   right: RegExp[],
-  samples: string[]
+  samples: string[],
 ): void {
   for (const sample of samples) {
     expect(matchesAny(left, sample)).toBe(matchesAny(right, sample));
