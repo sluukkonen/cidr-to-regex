@@ -525,10 +525,11 @@ function orPattern(parts: string[]): string {
   if (parts.length === 0) {
     return "(?!)";
   }
-  if (parts.length === 1) {
-    return parts[0];
+  const unique = uniquePatterns(parts);
+  if (unique.length === 1) {
+    return unique[0];
   }
-  return `(?:${parts.join("|")})`;
+  return `(?:${unique.join("|")})`;
 }
 
 function uniquePatterns(parts: string[]): string[] {
