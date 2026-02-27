@@ -59,5 +59,5 @@ export function uppercaseIPv6(addr: string): string {
 }
 
 function isAnchoredRegex(regex: RegExp): boolean {
-  return regex.source.startsWith("^(?:") && regex.source.endsWith(")$");
+  return regex.source.startsWith("^") && regex.source.endsWith("$");
 }

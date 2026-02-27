@@ -23,22 +23,14 @@ export function cidrToRegex(cidr: string, options?: CidrToRegexOptions): RegExp 
     const [start, end] = normalizeRange(parsed.address, IPV4_BITS, parsed.prefix);
     const startOctets = ipv4ToOctets(start);
     const endOctets = ipv4ToOctets(end);
-    const patterns = minimizePatternSet(
-      uniquePatterns(buildIPv4Patterns(startOctets, endOctets, 0)),
-      "\\.",
-      4,
-    );
+    const patterns = minimizePatternSet(buildIPv4Patterns(startOctets, endOctets, 0), "\\.", 4);
     return buildRegex(patterns, "ipv4", anchored, global, false);
   }
 
   const [start, end] = normalizeRange(parsed.address, IPV6_BITS, parsed.prefix);
   const startHextets = ipv6ToHextets(start);
   const endHextets = ipv6ToHextets(end);
-  const patterns = minimizePatternSet(
-    uniquePatterns(buildIPv6Patterns(startHextets, endHextets, 0)),
-    ":",
-    8,
-  );
+  const patterns = minimizePatternSet(buildIPv6Patterns(startHextets, endHextets, 0), ":", 8);
   return buildRegex(patterns, "ipv6", anchored, global, ignoreCase);
 }
 
@@ -49,7 +41,7 @@ function buildRegex(
   global: boolean,
   ignoreCase: boolean,
 ): RegExp {
-  const core = `(?:${orPattern(patterns)})`;
+  const core = orPattern(patterns);
   const source = anchored
     ? `^${core}$`
     : family === "ipv4"
@@ -148,12 +140,12 @@ function parseIPv6(text: string): bigint | null {
     return null;
   }
 
-  const doubleColonCount = (normalized.match(/::/g) ?? []).length;
-  if (doubleColonCount > 1) {
+  const firstDoubleColon = normalized.indexOf("::");
+  if (firstDoubleColon >= 0 && normalized.indexOf("::", firstDoubleColon + 1) >= 0) {
     return null;
   }
 
-  const hasCompression = normalized.includes("::");
+  const hasCompression = firstDoubleColon >= 0;
   const [leftRaw, rightRaw = ""] = hasCompression ? normalized.split("::") : [normalized, ""];
   const leftParts = leftRaw.length === 0 ? [] : leftRaw.split(":");
   const rightParts = hasCompression && rightRaw.length > 0 ? rightRaw.split(":") : [];
@@ -406,30 +398,28 @@ function octetRangePattern(start: number, end: number): string {
   if (start === 0 && end === 255) {
     return IPV4_ANY_OCTET;
   }
+  if (start === end) {
+    return String(start);
+  }
 
   const parts: string[] = [];
   for (let value = start; value <= end; value += 1) {
-    parts.push(octetValuePattern(value));
+    parts.push(String(value));
   }
   return orPattern(parts);
 }
 
-function octetValuePattern(value: number): string {
-  return String(value);
-}
-
 function hextetRangePattern(start: number, end: number): string {
-  let pattern: string;
   if (start === 0 && end === 0xffff) {
-    pattern = IPV6_ANY_HEXTET;
-  } else if (start === end) {
-    pattern = start.toString(16).padStart(4, "0");
-  } else {
-    const low = start.toString(16).padStart(4, "0");
-    const high = end.toString(16).padStart(4, "0");
-    pattern = orPattern(hexRangeParts(low, high));
+    return IPV6_ANY_HEXTET;
   }
-  return pattern;
+  if (start === end) {
+    return start.toString(16).padStart(4, "0");
+  }
+
+  const low = start.toString(16).padStart(4, "0");
+  const high = end.toString(16).padStart(4, "0");
+  return orPattern(hexRangeParts(low, high));
 }
 
 function hexRangeParts(low: string, high: string): string[] {
@@ -532,17 +522,19 @@ function hexValue(char: string): number {
 }
 
 function orPattern(parts: string[]): string {
-  const unique = uniquePatterns(parts);
-  if (unique.length === 0) {
+  if (parts.length === 0) {
     return "(?!)";
   }
-  if (unique.length === 1) {
-    return unique[0];
+  if (parts.length === 1) {
+    return parts[0];
   }
-  return `(?:${unique.join("|")})`;
+  return `(?:${parts.join("|")})`;
 }
 
 function uniquePatterns(parts: string[]): string[] {
+  if (parts.length <= 1) {
+    return parts.slice();
+  }
   return [...new Set(parts)];
 }
 
@@ -643,6 +635,9 @@ function splitPattern(pattern: string, separator: string, segmentCount: number):
 }
 
 function uniquePatternRows(rows: string[][]): string[][] {
+  if (rows.length <= 1) {
+    return rows.slice();
+  }
   const out = new Map<string, string[]>();
   for (const row of rows) {
     const key = row.join("\u0002");
