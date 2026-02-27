@@ -40,6 +40,18 @@ type CidrToRegexOptions = {
   - IPv4: exactly 4 dotted octets (`a.b.c.d`), no leading zeros.
   - IPv6: exactly 8 groups of 4 hex digits (no `::` output match).
 
+## Compatibility
+
+- Node.js: `>=14`
+- Browser compatibility with default options (`anchored: false`):
+  - Chrome `67+`
+  - Firefox `78+`
+  - Safari `16.4+`
+- Browser compatibility with `anchored: true` (no regex lookbehind requirement):
+  - Chrome `67+`
+  - Firefox `68+`
+  - Safari `14+`
+
 ## Development
 
 ```bash
