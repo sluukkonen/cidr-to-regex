@@ -57,6 +57,39 @@ describe("cidrToRegex contract", () => {
     });
   });
 
+  describe("options", () => {
+    it("uses unanchored matching and case-sensitive IPv6 by default", () => {
+      const ipv4 = compile("10.0.0.0/24");
+      const ipv6 = compile("2001:db8::/120");
+
+      expect(ipv4.flags).toBe("");
+      expect(matchesAny(ipv4, "x10.0.0.1x")).toBe(true);
+
+      expect(ipv6.flags).toBe("");
+      expect(matchesAny(ipv6, "2001:0DB8:0000:0000:0000:0000:0000:00AF")).toBe(false);
+    });
+
+    it("supports ignoreCase for IPv6 output", () => {
+      const regex = compile("2001:db8::/120", { ignoreCase: true });
+      expect(regex.flags).toBe("i");
+      expect(matchesAny(regex, "2001:0db8:0000:0000:0000:0000:0000:00af")).toBe(true);
+      expect(matchesAny(regex, "2001:0DB8:0000:0000:0000:0000:0000:00AF")).toBe(true);
+    });
+
+    it("supports anchored=true for full-string matching", () => {
+      const regex = compile("10.0.0.0/24", { anchored: true });
+      expect(matchesAny(regex, "x10.0.0.1x")).toBe(false);
+      expect(matchesAny(regex, "x10.0.1.1x")).toBe(false);
+    });
+
+    it("supports global flag", () => {
+      const ipv4 = compile("10.0.0.0/24", { global: true });
+      const ipv6 = compile("2001:db8::/120", { global: true, ignoreCase: true });
+      expect(ipv4.flags).toBe("g");
+      expect(ipv6.flags).toBe("gi");
+    });
+  });
+
   describe("single regex output", () => {
     it.each(["10.0.0.0/23", "10.0.0.0/22", "2001:db8::/47", "2001:db8::/33", "::/1"])(
       "returns RegExp for %s",
@@ -68,13 +101,13 @@ describe("cidrToRegex contract", () => {
 
   describe("exact match semantics", () => {
     it("matches only exact address for IPv4 /32", () => {
-      const regexes = compile("198.51.100.23/32");
+      const regexes = compile("198.51.100.23/32", { anchored: true });
       assertBehavior(regexes, ["198.51.100.23"], ["198.51.100.22", "198.51.100.24"]);
     });
 
     it("matches only exact address for IPv6 /128", () => {
       const target = "2001:0db8:0000:0000:0000:0000:0000:00ff";
-      const regexes = compile(`${target}/128`);
+      const regexes = compile(`${target}/128`, { anchored: true });
       assertBehavior(regexes, [target], ["2001:0DB8:0000:0000:0000:0000:0000:0100"]);
     });
   });
@@ -151,7 +184,7 @@ describe("cidrToRegex contract", () => {
     const insideUpper = uppercaseIPv6(insideLower);
 
     it("accepts lowercase and uppercase forms", () => {
-      const regexes = compile(cidr);
+      const regexes = compile(cidr, { ignoreCase: true });
       expect(matchesAny(regexes, insideLower)).toBe(true);
       expect(matchesAny(regexes, insideUpper)).toBe(true);
     });
@@ -197,7 +230,7 @@ describe("cidrToRegex contract", () => {
 
   describe("generated IPv6 fixtures", () => {
     it.each(ipv6FixtureCases)("%s", (_cidr, fixture) => {
-      const regexes = compile(fixture.cidr);
+      const regexes = compile(fixture.cidr, { ignoreCase: true });
       assertBehavior(regexes, fixture.inside, fixture.outside);
 
       for (const inside of fixture.inside) {

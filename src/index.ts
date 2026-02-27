@@ -9,8 +9,15 @@ const IPV4_ANY_OCTET = "(?:0|[1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-5])";
 const IPV6_ANY_HEXTET = "[0-9a-f]{4}";
 const HEX_DIGITS = "0123456789abcdef";
 
-export function cidrToRegex(cidr: string): RegExp {
+export type CidrToRegexOptions = {
+  anchored?: boolean;
+  ignoreCase?: boolean;
+  global?: boolean;
+};
+
+export function cidrToRegex(cidr: string, options?: CidrToRegexOptions): RegExp {
   const parsed = parseCidr(cidr);
+  const { anchored = false, ignoreCase = false, global = false } = options ?? {};
 
   if (parsed.family === "ipv4") {
     const [start, end] = normalizeRange(parsed.address, IPV4_BITS, parsed.prefix);
@@ -21,7 +28,7 @@ export function cidrToRegex(cidr: string): RegExp {
       "\\.",
       4,
     );
-    return buildRegex(patterns);
+    return buildRegex(patterns, "ipv4", anchored, global, false);
   }
 
   const [start, end] = normalizeRange(parsed.address, IPV6_BITS, parsed.prefix);
@@ -32,11 +39,24 @@ export function cidrToRegex(cidr: string): RegExp {
     ":",
     8,
   );
-  return buildRegex(patterns, "i");
+  return buildRegex(patterns, "ipv6", anchored, global, ignoreCase);
 }
 
-function buildRegex(patterns: string[], flags?: string): RegExp {
-  return new RegExp(`^(?:${orPattern(patterns)})$`, flags);
+function buildRegex(
+  patterns: string[],
+  family: "ipv4" | "ipv6",
+  anchored: boolean,
+  global: boolean,
+  ignoreCase: boolean,
+): RegExp {
+  const core = `(?:${orPattern(patterns)})`;
+  const source = anchored
+    ? `^${core}$`
+    : family === "ipv4"
+      ? `(?<![0-9.])${core}(?![0-9.])`
+      : `(?<![0-9A-Fa-f:])${core}(?![0-9A-Fa-f:])`;
+  const flags = `${global ? "g" : ""}${ignoreCase ? "i" : ""}`;
+  return new RegExp(source, flags);
 }
 
 function parseCidr(input: string): ParsedCidr {

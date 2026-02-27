@@ -19,12 +19,23 @@ const ok = regex.test("2001:0db8:0000:0000:0000:0000:0000:0001");
 
 ## API
 
-### `cidrToRegex(cidr: string): RegExp`
+### `cidrToRegex(cidr: string, options?: CidrToRegexOptions): RegExp`
+
+```ts
+type CidrToRegexOptions = {
+  anchored?: boolean; // default false
+  ignoreCase?: boolean; // default false
+  global?: boolean; // default false
+};
+```
 
 - Accepts IPv4 and IPv6 CIDR input.
 - CIDR parsing is liberal (for example compressed IPv6 like `::ff/16` is accepted).
 - CIDR network bits are normalized (host bits in the input address are ignored).
-- Returned regex is full-string anchored.
+- By default, returned regex is not full-string anchored.
+- `options.anchored` controls whether `^...$` anchors are included.
+- `options.ignoreCase` enables case-insensitive IPv6 matching (adds `i` flag).
+- `options.global` adds the `g` flag to the returned regex.
 - Output matching currently targets maximal address strings:
   - IPv4: exactly 4 dotted octets (`a.b.c.d`), no leading zeros.
   - IPv6: exactly 8 groups of 4 hex digits (no `::` output match).

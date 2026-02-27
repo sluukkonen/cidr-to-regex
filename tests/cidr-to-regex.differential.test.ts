@@ -66,8 +66,8 @@ describe("cidrToRegex differential fixtures", () => {
     it.each(data.ipv6.map((entry) => [entry.cidr, entry] as const))(
       "matches ipaddress semantics for %s",
       (_cidr, entry) => {
-        const regexes = compile(entry.cidr);
-        const normalized = compile(entry.normalized);
+        const regexes = compile(entry.cidr, { ignoreCase: true });
+        const normalized = compile(entry.normalized, { ignoreCase: true });
 
         for (const sample of entry.samples) {
           expect(matchesAny(regexes, sample.addr)).toBe(sample.expected);

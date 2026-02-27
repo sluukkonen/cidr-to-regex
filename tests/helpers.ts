@@ -1,4 +1,4 @@
-import { cidrToRegex } from "../src/index.js";
+import { type CidrToRegexOptions, cidrToRegex } from "../src/index.js";
 
 export type FixtureCase = {
   cidr: string;
@@ -22,8 +22,8 @@ export function matchesAny(regexes: RegexInput, value: string): boolean {
   return asRegexArray(regexes).some((regex) => safeTest(regex, value));
 }
 
-export function compile(cidr: string): RegExp {
-  const regex = cidrToRegex(cidr);
+export function compile(cidr: string, options?: CidrToRegexOptions): RegExp {
+  const regex = cidrToRegex(cidr, options);
   if (!(regex instanceof RegExp)) {
     throw new TypeError("cidrToRegex must return a RegExp");
   }
@@ -31,10 +31,13 @@ export function compile(cidr: string): RegExp {
 }
 
 export function assertBehavior(regexes: RegexInput, inside: string[], outside: string[]): void {
+  const strict = asRegexArray(regexes).every(isAnchoredRegex);
   for (const addr of inside) {
     expect(matchesAny(regexes, addr)).toBe(true);
-    expect(matchesAny(regexes, `x${addr}`)).toBe(false);
-    expect(matchesAny(regexes, `${addr}x`)).toBe(false);
+    if (strict) {
+      expect(matchesAny(regexes, `x${addr}`)).toBe(false);
+      expect(matchesAny(regexes, `${addr}x`)).toBe(false);
+    }
   }
   for (const addr of outside) {
     expect(matchesAny(regexes, addr)).toBe(false);
@@ -53,4 +56,8 @@ export function assertEquivalentOnSamples(
 
 export function uppercaseIPv6(addr: string): string {
   return addr.toUpperCase();
+}
+
+function isAnchoredRegex(regex: RegExp): boolean {
+  return regex.source.startsWith("^(?:") && regex.source.endsWith(")$");
 }

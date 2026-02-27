@@ -72,7 +72,7 @@ describe("cidrToRegex fuzz stress", () => {
       const raw = randomIPv6Value(rng);
       const prefix = rng.nextInt(129);
       const cidr = formatIPv6Cidr(raw, prefix, rng);
-      const regexes = compile(cidr);
+      const regexes = compile(cidr, { ignoreCase: true });
 
       const [start, end] = normalizedRange(raw, 128, prefix);
       const max = (1n << 128n) - 1n;
