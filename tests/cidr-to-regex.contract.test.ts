@@ -46,24 +46,22 @@ describe("cidrToRegex contract", () => {
   });
 
   describe("return shape", () => {
-    it("returns non-empty RegExp[] for valid IPv4 CIDR", () => {
-      const regexes = compile("10.0.0.1/24");
-      expect(regexes.length).toBeGreaterThan(0);
-      expect(regexes.every((re) => re instanceof RegExp)).toBe(true);
+    it("returns RegExp for valid IPv4 CIDR", () => {
+      const regex = compile("10.0.0.1/24");
+      expect(regex).toBeInstanceOf(RegExp);
     });
 
-    it("returns non-empty RegExp[] for valid IPv6 CIDR", () => {
-      const regexes = compile("2001:0db8:0000:0000:0000:0000:0000:0001/64");
-      expect(regexes.length).toBeGreaterThan(0);
-      expect(regexes.every((re) => re instanceof RegExp)).toBe(true);
+    it("returns RegExp for valid IPv6 CIDR", () => {
+      const regex = compile("2001:0db8:0000:0000:0000:0000:0000:0001/64");
+      expect(regex).toBeInstanceOf(RegExp);
     });
   });
 
-  describe("regex count minimization", () => {
+  describe("single regex output", () => {
     it.each(["10.0.0.0/23", "10.0.0.0/22", "2001:db8::/47", "2001:db8::/33", "::/1"])(
-      "returns a single regex for %s",
+      "returns RegExp for %s",
       (cidr) => {
-        expect(compile(cidr)).toHaveLength(1);
+        expect(compile(cidr)).toBeInstanceOf(RegExp);
       },
     );
   });

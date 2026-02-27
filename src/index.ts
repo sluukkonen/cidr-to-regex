@@ -9,7 +9,7 @@ const IPV4_ANY_OCTET = "(?:0{1,3}|0{0,2}[1-9]|0?[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]
 const IPV6_ANY_HEXTET = "[0-9a-f]{4}";
 const HEX_DIGITS = "0123456789abcdef";
 
-export function cidrToRegex(cidr: string): RegExp[] {
+export function cidrToRegex(cidr: string): RegExp {
   const parsed = parseCidr(cidr);
 
   if (parsed.family === "ipv4") {
@@ -21,7 +21,7 @@ export function cidrToRegex(cidr: string): RegExp[] {
       "\\.",
       4,
     );
-    return patterns.map((pattern) => new RegExp(`^(?:${pattern})$`));
+    return buildRegex(patterns);
   }
 
   const [start, end] = normalizeRange(parsed.address, IPV6_BITS, parsed.prefix);
@@ -32,7 +32,11 @@ export function cidrToRegex(cidr: string): RegExp[] {
     ":",
     8,
   );
-  return patterns.map((pattern) => new RegExp(`^(?:${pattern})$`, "i"));
+  return buildRegex(patterns, "i");
+}
+
+function buildRegex(patterns: string[], flags?: string): RegExp {
+  return new RegExp(`^(?:${orPattern(patterns)})$`, flags);
 }
 
 function parseCidr(input: string): ParsedCidr {

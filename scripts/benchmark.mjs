@@ -34,14 +34,14 @@ function benchmarkCase(cidr) {
   }
 
   const samples = [];
-  let regexCount = 0;
+  let hasRegex = false;
 
   for (let i = 0; i < ITERATIONS; i += 1) {
     const start = performance.now();
-    const regexes = cidrToRegex(cidr);
+    const regex = cidrToRegex(cidr);
     const elapsedMicros = (performance.now() - start) * 1000;
     samples.push(elapsedMicros);
-    regexCount = regexes.length;
+    hasRegex = regex instanceof RegExp;
   }
 
   samples.sort((a, b) => a - b);
@@ -49,7 +49,7 @@ function benchmarkCase(cidr) {
 
   return {
     cidr,
-    regexes: regexCount,
+    regex: hasRegex,
     avg_us: Number((total / samples.length).toFixed(2)),
     p50_us: Number(percentile(samples, 0.5).toFixed(2)),
     p95_us: Number(percentile(samples, 0.95).toFixed(2)),

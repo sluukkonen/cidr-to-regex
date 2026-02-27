@@ -7,32 +7,30 @@ export type FixtureCase = {
   outside: string[];
 };
 
+type RegexInput = RegExp | RegExp[];
+
 function safeTest(regex: RegExp, value: string): boolean {
   regex.lastIndex = 0;
   return regex.test(value);
 }
 
-export function matchesAny(regexes: RegExp[], value: string): boolean {
-  return regexes.some((regex) => safeTest(regex, value));
+function asRegexArray(regexes: RegexInput): RegExp[] {
+  return Array.isArray(regexes) ? regexes : [regexes];
 }
 
-export function compile(cidr: string): RegExp[] {
-  const regexes = cidrToRegex(cidr);
-  if (!Array.isArray(regexes)) {
-    throw new TypeError("cidrToRegex must return an array");
-  }
-  if (regexes.length === 0) {
-    throw new TypeError("cidrToRegex must return at least one regex for valid CIDR");
-  }
-  for (const regex of regexes) {
-    if (!(regex instanceof RegExp)) {
-      throw new TypeError("cidrToRegex array entries must be RegExp instances");
-    }
-  }
-  return regexes;
+export function matchesAny(regexes: RegexInput, value: string): boolean {
+  return asRegexArray(regexes).some((regex) => safeTest(regex, value));
 }
 
-export function assertBehavior(regexes: RegExp[], inside: string[], outside: string[]): void {
+export function compile(cidr: string): RegExp {
+  const regex = cidrToRegex(cidr);
+  if (!(regex instanceof RegExp)) {
+    throw new TypeError("cidrToRegex must return a RegExp");
+  }
+  return regex;
+}
+
+export function assertBehavior(regexes: RegexInput, inside: string[], outside: string[]): void {
   for (const addr of inside) {
     expect(matchesAny(regexes, addr)).toBe(true);
     expect(matchesAny(regexes, `x${addr}`)).toBe(false);
@@ -44,8 +42,8 @@ export function assertBehavior(regexes: RegExp[], inside: string[], outside: str
 }
 
 export function assertEquivalentOnSamples(
-  left: RegExp[],
-  right: RegExp[],
+  left: RegexInput,
+  right: RegexInput,
   samples: string[],
 ): void {
   for (const sample of samples) {
