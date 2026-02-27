@@ -36,9 +36,9 @@ type CidrToRegexOptions = {
 - `options.anchored` controls whether `^...$` anchors are included.
 - `options.ignoreCase` enables case-insensitive IPv6 matching (adds `i` flag).
 - `options.global` adds the `g` flag to the returned regex.
-- Output matching currently targets maximal address strings:
-  - IPv4: exactly 4 dotted octets (`a.b.c.d`), no leading zeros.
-  - IPv6: exactly 8 groups of 4 hex digits (no `::` output match).
+- Output matching targets canonical textual forms:
+  - IPv4: canonical dotted-decimal (a.b.c.d, no leading zeros).
+  - IPv6: fully expanded/uncompressed form (hhhh:hhhh:...:hhhh, exactly 8 hextets).
 
 ## Compatibility
 
