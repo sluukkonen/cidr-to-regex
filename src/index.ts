@@ -5,7 +5,7 @@ type ParsedCidr =
 const IPV4_BITS = 32;
 const IPV6_BITS = 128;
 
-const IPV4_ANY_OCTET = "(?:0{1,3}|0{0,2}[1-9]|0?[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])";
+const IPV4_ANY_OCTET = "(?:0|[1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-5])";
 const IPV6_ANY_HEXTET = "[0-9a-f]{4}";
 const HEX_DIGITS = "0123456789abcdef";
 
@@ -395,17 +395,7 @@ function octetRangePattern(start: number, end: number): string {
 }
 
 function octetValuePattern(value: number): string {
-  const text = String(value);
-  if (value === 0) {
-    return "0{1,3}";
-  }
-  if (text.length === 1) {
-    return `0{0,2}${text}`;
-  }
-  if (text.length === 2) {
-    return `0?${text}`;
-  }
-  return text;
+  return String(value);
 }
 
 const hextetRangeCache = new Map<string, string>();

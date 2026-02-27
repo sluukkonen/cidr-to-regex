@@ -26,7 +26,7 @@ const ok = regex.test("2001:0db8:0000:0000:0000:0000:0000:0001");
 - CIDR network bits are normalized (host bits in the input address are ignored).
 - Returned regex is full-string anchored.
 - Output matching currently targets maximal address strings:
-  - IPv4: exactly 4 dotted octets (`a.b.c.d`), leading zeros allowed.
+  - IPv4: exactly 4 dotted octets (`a.b.c.d`), no leading zeros.
   - IPv6: exactly 8 groups of 4 hex digits (no `::` output match).
 
 ## Development

@@ -118,11 +118,12 @@ describe("cidrToRegex contract", () => {
   });
 
   describe("IPv4 leading zeros", () => {
-    it("accepts leading-zero forms for addresses in-range", () => {
+    it("rejects leading-zero forms for addresses in-range", () => {
       const regexes = compile("10.0.0.0/24");
-      expect(matchesAny(regexes, "010.000.000.001")).toBe(true);
-      expect(matchesAny(regexes, "010.00.0.001")).toBe(true);
-      expect(matchesAny(regexes, "10.000.000.1")).toBe(true);
+      expect(matchesAny(regexes, "010.000.000.001")).toBe(false);
+      expect(matchesAny(regexes, "010.00.0.001")).toBe(false);
+      expect(matchesAny(regexes, "10.000.000.1")).toBe(false);
+      expect(matchesAny(regexes, "10.0.0.1")).toBe(true);
       expect(matchesAny(regexes, "010.000.001.001")).toBe(false);
       expect(matchesAny(regexes, "010.000.000.256")).toBe(false);
     });

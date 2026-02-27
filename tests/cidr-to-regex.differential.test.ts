@@ -48,7 +48,9 @@ describe("cidrToRegex differential fixtures", () => {
 
         for (const sample of entry.samples) {
           expect(matchesAny(regexes, sample.addr)).toBe(sample.expected);
-          expect(matchesAny(regexes, sample.padded)).toBe(sample.expected);
+          expect(matchesAny(regexes, sample.padded)).toBe(
+            sample.expected && isCanonicalIPv4(sample.padded),
+          );
         }
 
         assertEquivalentOnSamples(
@@ -81,3 +83,23 @@ describe("cidrToRegex differential fixtures", () => {
     );
   });
 });
+
+function isCanonicalIPv4(addr: string): boolean {
+  const parts = addr.split(".");
+  if (parts.length !== 4) {
+    return false;
+  }
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) {
+      return false;
+    }
+    if (part.length > 1 && part.startsWith("0")) {
+      return false;
+    }
+    const value = Number.parseInt(part, 10);
+    if (value < 0 || value > 255) {
+      return false;
+    }
+  }
+  return true;
+}

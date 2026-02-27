@@ -58,8 +58,9 @@ describe("cidrToRegex fuzz stress", () => {
         const expected = probe >= start && probe <= end;
         const canonical = formatIPv4Canonical(probe);
         const padded = formatIPv4Padded(probe, rng);
+        const paddedExpected = expected && isCanonicalIPv4(padded);
         expect(matchesAny(regexes, canonical)).toBe(expected);
-        expect(matchesAny(regexes, padded)).toBe(expected);
+        expect(matchesAny(regexes, padded)).toBe(paddedExpected);
       }
     }
   });
@@ -141,6 +142,26 @@ function formatIPv4Cidr(value: bigint, prefix: number, padded: boolean): string 
     .split(".")
     .map((part) => part.padStart(3, "0"))
     .join(".")}/${prefix}`;
+}
+
+function isCanonicalIPv4(addr: string): boolean {
+  const parts = addr.split(".");
+  if (parts.length !== 4) {
+    return false;
+  }
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) {
+      return false;
+    }
+    if (part.length > 1 && part.startsWith("0")) {
+      return false;
+    }
+    const value = Number.parseInt(part, 10);
+    if (value < 0 || value > 255) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function formatIPv6Canonical(value: bigint): string {
