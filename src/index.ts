@@ -418,15 +418,7 @@ function octetValuePattern(value: number): string {
   return String(value);
 }
 
-const hextetRangeCache = new Map<string, string>();
-
 function hextetRangePattern(start: number, end: number): string {
-  const key = `${start}-${end}`;
-  const cached = hextetRangeCache.get(key);
-  if (cached) {
-    return cached;
-  }
-
   let pattern: string;
   if (start === 0 && end === 0xffff) {
     pattern = IPV6_ANY_HEXTET;
@@ -437,8 +429,6 @@ function hextetRangePattern(start: number, end: number): string {
     const high = end.toString(16).padStart(4, "0");
     pattern = orPattern(hexRangeParts(low, high));
   }
-
-  hextetRangeCache.set(key, pattern);
   return pattern;
 }
 
