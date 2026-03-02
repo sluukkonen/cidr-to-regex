@@ -3,6 +3,7 @@ type ParsedCidr =
   | { family: "ipv6"; address: bigint; prefix: number };
 
 type IPv6HextetRange = { start: number; end: number };
+type IPv6SegmentTrieNode = { children: Map<string, IPv6SegmentTrieNode> };
 
 const IPV4_BITS = 32;
 const IPV6_BITS = 128;
@@ -36,7 +37,7 @@ export function cidrToRegex(cidr: string, options?: CidrToRegexOptions): RegExp 
   const rawPatterns = buildIPv6TextPatterns(startHextets, endHextets);
   const patterns =
     rawPatterns.length >= IPV6_MINIMIZE_THRESHOLD
-      ? factorIPv6AnyHextetRuns(minimizeIPv6PatternSet(rawPatterns))
+      ? factorIPv6SegmentTrie(factorIPv6AnyHextetRuns(minimizeIPv6PatternSet(rawPatterns)))
       : rawPatterns;
   return buildRegex(patterns, "ipv6", anchored, global, ignoreCase);
 }
@@ -581,6 +582,75 @@ function factorIPv6AnyHextetRunsInPattern(pattern: string): string {
   }
 
   return out.join(":");
+}
+
+function factorIPv6SegmentTrie(patterns: string[]): string[] {
+  if (patterns.length <= 1) {
+    return patterns;
+  }
+
+  const grouped = new Map<number, string[]>();
+  for (const pattern of uniquePatterns(patterns)) {
+    const segmentCount = countTopLevelSegments(pattern, ":");
+    const existing = grouped.get(segmentCount);
+    if (existing) {
+      existing.push(pattern);
+    } else {
+      grouped.set(segmentCount, [pattern]);
+    }
+  }
+
+  const factored: string[] = [];
+  for (const [segmentCount, groupPatterns] of grouped.entries()) {
+    if (groupPatterns.length === 1) {
+      factored.push(groupPatterns[0]);
+      continue;
+    }
+
+    const root = createIPv6SegmentTrieNode();
+    for (const pattern of groupPatterns) {
+      insertIPv6TrieSegments(root, splitPattern(pattern, ":", segmentCount));
+    }
+
+    const emitted = emitIPv6TriePattern(root, 0, segmentCount);
+    const flat = orPattern(groupPatterns);
+    factored.push(emitted.length < flat.length ? emitted : flat);
+  }
+
+  return uniquePatterns(factored);
+}
+
+function createIPv6SegmentTrieNode(): IPv6SegmentTrieNode {
+  return { children: new Map<string, IPv6SegmentTrieNode>() };
+}
+
+function insertIPv6TrieSegments(root: IPv6SegmentTrieNode, segments: string[]): void {
+  let node = root;
+  for (const segment of segments) {
+    let next = node.children.get(segment);
+    if (!next) {
+      next = createIPv6SegmentTrieNode();
+      node.children.set(segment, next);
+    }
+    node = next;
+  }
+}
+
+function emitIPv6TriePattern(
+  node: IPv6SegmentTrieNode,
+  depth: number,
+  segmentCount: number,
+): string {
+  if (depth >= segmentCount) {
+    return "";
+  }
+
+  const parts: string[] = [];
+  for (const [segment, child] of node.children.entries()) {
+    const suffix = emitIPv6TriePattern(child, depth + 1, segmentCount);
+    parts.push(suffix.length === 0 ? segment : `${segment}:${suffix}`);
+  }
+  return orPattern(parts);
 }
 
 function countTopLevelSegments(pattern: string, separator: string): number {
