@@ -31,7 +31,7 @@ export function cidrToRegex(cidr: string, options?: CidrToRegexOptions): RegExp 
   const [start, end] = normalizeRange(parsed.address, IPV6_BITS, parsed.prefix);
   const startHextets = ipv6ToHextets(start);
   const endHextets = ipv6ToHextets(end);
-  const patterns = buildIPv6TextPatterns(startHextets, endHextets);
+  const patterns = minimizeIPv6PatternSet(buildIPv6TextPatterns(startHextets, endHextets));
   return buildRegex(patterns, "ipv6", anchored, global, ignoreCase);
 }
 
@@ -481,6 +481,69 @@ function hextetTextPattern(start: number, end: number): string {
   }
 
   return orPattern(parts);
+}
+
+function minimizeIPv6PatternSet(patterns: string[]): string[] {
+  const grouped = new Map<number, string[]>();
+  for (const pattern of uniquePatterns(patterns)) {
+    const segmentCount = countTopLevelSegments(pattern, ":");
+    const existing = grouped.get(segmentCount);
+    if (existing) {
+      existing.push(pattern);
+    } else {
+      grouped.set(segmentCount, [pattern]);
+    }
+  }
+
+  const minimized: string[] = [];
+  for (const [segmentCount, segmentPatterns] of grouped.entries()) {
+    minimized.push(...minimizePatternSet(segmentPatterns, ":", segmentCount));
+  }
+  return uniquePatterns(minimized);
+}
+
+function countTopLevelSegments(pattern: string, separator: string): number {
+  let segments = 1;
+  let parenDepth = 0;
+  let inCharClass = false;
+  let escaped = false;
+
+  for (let i = 0; i < pattern.length; i += 1) {
+    if (!escaped && !inCharClass && parenDepth === 0 && pattern.startsWith(separator, i)) {
+      segments += 1;
+      i += separator.length - 1;
+      continue;
+    }
+
+    const char = pattern[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (inCharClass) {
+      if (char === "]") {
+        inCharClass = false;
+      }
+      continue;
+    }
+    if (char === "[") {
+      inCharClass = true;
+      continue;
+    }
+    if (char === "(") {
+      parenDepth += 1;
+      continue;
+    }
+    if (char === ")" && parenDepth > 0) {
+      parenDepth -= 1;
+    }
+  }
+
+  return segments;
 }
 
 function combineWithSuffix(head: string, suffixes: string[], separator: string): string[] {

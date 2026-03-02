@@ -89,10 +89,12 @@ describe("cidrToRegex fuzz stress", () => {
       for (const probe of probeSet) {
         const expected = probe >= start && probe <= end;
         const canonical = formatIPv6Canonical(probe);
+        const exploded = formatIPv6Exploded(probe);
         const unpadded = formatIPv6Unpadded(probe);
         const compressed = formatIPv6Compressed(probe);
         const upper = canonical.toUpperCase();
         expect(matchesAny(regexes, canonical)).toBe(expected);
+        expect(matchesAny(regexes, exploded)).toBe(expected);
         expect(matchesAny(regexes, unpadded)).toBe(expected);
         expect(matchesAny(regexes, compressed)).toBe(expected);
         expect(matchesAny(regexes, upper)).toBe(expected);
@@ -168,7 +170,7 @@ function isCanonicalIPv4(addr: string): boolean {
   return true;
 }
 
-function formatIPv6Canonical(value: bigint): string {
+function formatIPv6Exploded(value: bigint): string {
   const hextets: string[] = [];
   for (let i = 0; i < 8; i += 1) {
     const shift = BigInt((7 - i) * 16);
@@ -181,15 +183,19 @@ function formatIPv6Canonical(value: bigint): string {
   return hextets.join(":");
 }
 
+function formatIPv6Canonical(value: bigint): string {
+  return formatIPv6Exploded(value);
+}
+
 function formatIPv6Unpadded(value: bigint): string {
-  return formatIPv6Canonical(value)
+  return formatIPv6Exploded(value)
     .split(":")
     .map((part) => part.replace(/^0+/, "") || "0")
     .join(":");
 }
 
 function formatIPv6Compressed(value: bigint): string {
-  const parts = formatIPv6Canonical(value).split(":");
+  const parts = formatIPv6Exploded(value).split(":");
 
   let bestStart = -1;
   let bestLen = 0;
@@ -230,22 +236,22 @@ function formatIPv6Compressed(value: bigint): string {
 }
 
 function formatIPv6EmbeddedIPv4(value: bigint): string {
-  const canonical = formatIPv6Canonical(value).split(":");
-  const high = Number.parseInt(canonical[6], 16);
-  const low = Number.parseInt(canonical[7], 16);
+  const exploded = formatIPv6Exploded(value).split(":");
+  const high = Number.parseInt(exploded[6], 16);
+  const low = Number.parseInt(exploded[7], 16);
   const ipv4 = `${(high >> 8) & 255}.${high & 255}.${(low >> 8) & 255}.${low & 255}`;
-  return `${canonical.slice(0, 6).join(":")}:${ipv4}`;
+  return `${exploded.slice(0, 6).join(":")}:${ipv4}`;
 }
 
 function formatIPv6Cidr(value: bigint, prefix: number, rng: XorShift32): string {
   const mode = rng.nextInt(4);
   const address =
     mode === 0
-      ? formatIPv6Canonical(value)
+      ? formatIPv6Exploded(value)
       : mode === 1
         ? formatIPv6Compressed(value)
         : mode === 2
-          ? formatIPv6Canonical(value).toUpperCase()
+          ? formatIPv6Exploded(value).toUpperCase()
           : formatIPv6EmbeddedIPv4(value);
   return `${address}/${prefix}`;
 }

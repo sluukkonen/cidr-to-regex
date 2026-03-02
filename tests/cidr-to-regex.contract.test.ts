@@ -124,9 +124,9 @@ describe("cidrToRegex contract", () => {
 
     it("matches IPv6 compressed and non-padded forms", () => {
       const regexes = compile("2001:0db8:0000:0000:0000:0000:0000:0000/112");
-      expect(matchesAny(regexes, "2001:0db8:0000:0000:0000:0000:0000:00ab")).toBe(true);
-      expect(matchesAny(regexes, "2001:db8::ab")).toBe(true);
       expect(matchesAny(regexes, "2001:db8:0:0:0:0:0:ab")).toBe(true);
+      expect(matchesAny(regexes, "2001:db8::ab")).toBe(true);
+      expect(matchesAny(regexes, "2001:0db8:0000:0000:0000:0000:0000:00ab")).toBe(true);
       expect(matchesAny(regexes, "2001:db8:::ab")).toBe(false);
       expect(matchesAny(regexes, "2001:db8::1:ab")).toBe(false);
     });
@@ -200,7 +200,7 @@ describe("cidrToRegex contract", () => {
   });
 
   describe("IPv6 case-insensitive hex acceptance", () => {
-    const cidr = "2001:0db8:0000:0000:0000:0000:0000:0000/120";
+    const cidr = "2001:db8::/120";
     const insideLower = "2001:0db8:0000:0000:0000:0000:0000:00af";
     const insideUpper = uppercaseIPv6(insideLower);
 
