@@ -6,6 +6,7 @@ type IPv6HextetRange = { start: number; end: number };
 
 const IPV4_BITS = 32;
 const IPV6_BITS = 128;
+const IPV6_MINIMIZE_THRESHOLD = 80;
 
 const IPV4_ANY_OCTET = "(?:0|[1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-5])";
 const HEX_DIGITS = "0123456789abcdef";
@@ -31,7 +32,11 @@ export function cidrToRegex(cidr: string, options?: CidrToRegexOptions): RegExp 
   const [start, end] = normalizeRange(parsed.address, IPV6_BITS, parsed.prefix);
   const startHextets = ipv6ToHextets(start);
   const endHextets = ipv6ToHextets(end);
-  const patterns = minimizeIPv6PatternSet(buildIPv6TextPatterns(startHextets, endHextets));
+  const rawPatterns = buildIPv6TextPatterns(startHextets, endHextets);
+  const patterns =
+    rawPatterns.length >= IPV6_MINIMIZE_THRESHOLD
+      ? minimizeIPv6PatternSet(rawPatterns)
+      : rawPatterns;
   return buildRegex(patterns, "ipv6", anchored, global, ignoreCase);
 }
 
