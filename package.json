@@ -1,6 +1,6 @@
 {
   "name": "cidr-to-regex",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Convert IPv4/IPv6 CIDR blocks into regular expressions",
   "license": "MIT",
   "type": "module",
