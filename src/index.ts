@@ -3,7 +3,7 @@ type ParsedCidr =
   | { family: "ipv6"; address: bigint; prefix: number };
 
 type IPv6HextetRange = { start: number; end: number };
-type IPv6SegmentTrieNode = { children: Map<string, IPv6SegmentTrieNode> };
+type SegmentTrieNode = { children: Map<string, SegmentTrieNode> };
 
 const IPV4_BITS = 32;
 const IPV6_BITS = 128;
@@ -352,88 +352,11 @@ function buildIPv4Patterns(start: number[], end: number[], index: number): strin
 }
 
 function buildIPv6TextPatterns(start: number[], end: number[]): string[] {
-  const rows = buildIPv6Rows(start, end, 0);
-  return uniquePatterns(rows.flatMap((row) => expandIPv6RowPatterns(row)));
-}
-
-function buildIPv6Rows(start: number[], end: number[], index: number): IPv6HextetRange[][] {
-  if (index === 8) {
-    return [[]];
+  const row: IPv6HextetRange[] = [];
+  for (let i = 0; i < 8; i += 1) {
+    row.push({ start: start[i], end: end[i] });
   }
-  if (isFullRange(start, end, index, 0, 0xffff)) {
-    return [ipv6FullRangeRow(8 - index)];
-  }
-
-  const low = start[index];
-  const high = end[index];
-
-  if (low === high) {
-    return combineIPv6RangeWithSuffix(
-      { start: low, end: high },
-      buildIPv6Rows(start, end, index + 1),
-    );
-  }
-
-  const rows: IPv6HextetRange[][] = [];
-
-  const firstEnd = start.slice();
-  firstEnd[index] = low;
-  for (let i = index + 1; i < 8; i += 1) {
-    firstEnd[i] = 0xffff;
-  }
-  rows.push(
-    ...combineIPv6RangeWithSuffix(
-      { start: low, end: low },
-      buildIPv6Rows(start, firstEnd, index + 1),
-    ),
-  );
-
-  if (low + 1 <= high - 1) {
-    rows.push([{ start: low + 1, end: high - 1 }, ...ipv6FullRangeRow(8 - index - 1)]);
-  }
-
-  const lastStart = end.slice();
-  lastStart[index] = high;
-  for (let i = index + 1; i < 8; i += 1) {
-    lastStart[i] = 0;
-  }
-  rows.push(
-    ...combineIPv6RangeWithSuffix(
-      { start: high, end: high },
-      buildIPv6Rows(lastStart, end, index + 1),
-    ),
-  );
-
-  return uniqueIPv6Rows(rows);
-}
-
-function combineIPv6RangeWithSuffix(
-  head: IPv6HextetRange,
-  suffixes: IPv6HextetRange[][],
-): IPv6HextetRange[][] {
-  return suffixes.map((suffix) => [head, ...suffix]);
-}
-
-function ipv6FullRangeRow(count: number): IPv6HextetRange[] {
-  const out: IPv6HextetRange[] = [];
-  for (let i = 0; i < count; i += 1) {
-    out.push({ start: 0, end: 0xffff });
-  }
-  return out;
-}
-
-function uniqueIPv6Rows(rows: IPv6HextetRange[][]): IPv6HextetRange[][] {
-  if (rows.length <= 1) {
-    return rows.slice();
-  }
-  const out = new Map<string, IPv6HextetRange[]>();
-  for (const row of rows) {
-    const key = row.map((part) => `${part.start}-${part.end}`).join("|");
-    if (!out.has(key)) {
-      out.set(key, row);
-    }
-  }
-  return [...out.values()];
+  return uniquePatterns(expandIPv6RowPatterns(row));
 }
 
 function expandIPv6RowPatterns(row: IPv6HextetRange[]): string[] {
@@ -602,44 +525,52 @@ function factorIPv6SegmentTrie(patterns: string[]): string[] {
 
   const factored: string[] = [];
   for (const [segmentCount, groupPatterns] of grouped.entries()) {
-    if (groupPatterns.length === 1) {
-      factored.push(groupPatterns[0]);
-      continue;
-    }
-
-    const root = createIPv6SegmentTrieNode();
-    for (const pattern of groupPatterns) {
-      insertIPv6TrieSegments(root, splitPattern(pattern, ":", segmentCount));
-    }
-
-    const emitted = emitIPv6TriePattern(root, 0, segmentCount);
-    const flat = orPattern(groupPatterns);
-    factored.push(emitted.length < flat.length ? emitted : flat);
+    factored.push(...factorPatternSegmentTrie(groupPatterns, ":", segmentCount));
   }
 
   return uniquePatterns(factored);
 }
 
-function createIPv6SegmentTrieNode(): IPv6SegmentTrieNode {
-  return { children: new Map<string, IPv6SegmentTrieNode>() };
+function factorPatternSegmentTrie(
+  patterns: string[],
+  separator: string,
+  segmentCount: number,
+): string[] {
+  if (patterns.length <= 1) {
+    return patterns;
+  }
+
+  const root = createSegmentTrieNode();
+  for (const pattern of patterns) {
+    insertTrieSegments(root, splitPattern(pattern, separator, segmentCount));
+  }
+
+  const emitted = emitTriePattern(root, 0, segmentCount, separator);
+  const flat = orPattern(patterns);
+  return [emitted.length < flat.length ? emitted : flat];
 }
 
-function insertIPv6TrieSegments(root: IPv6SegmentTrieNode, segments: string[]): void {
+function createSegmentTrieNode(): SegmentTrieNode {
+  return { children: new Map<string, SegmentTrieNode>() };
+}
+
+function insertTrieSegments(root: SegmentTrieNode, segments: string[]): void {
   let node = root;
   for (const segment of segments) {
     let next = node.children.get(segment);
     if (!next) {
-      next = createIPv6SegmentTrieNode();
+      next = createSegmentTrieNode();
       node.children.set(segment, next);
     }
     node = next;
   }
 }
 
-function emitIPv6TriePattern(
-  node: IPv6SegmentTrieNode,
+function emitTriePattern(
+  node: SegmentTrieNode,
   depth: number,
   segmentCount: number,
+  separator: string,
 ): string {
   if (depth >= segmentCount) {
     return "";
@@ -647,8 +578,8 @@ function emitIPv6TriePattern(
 
   const parts: string[] = [];
   for (const [segment, child] of node.children.entries()) {
-    const suffix = emitIPv6TriePattern(child, depth + 1, segmentCount);
-    parts.push(suffix.length === 0 ? segment : `${segment}:${suffix}`);
+    const suffix = emitTriePattern(child, depth + 1, segmentCount, separator);
+    parts.push(suffix.length === 0 ? segment : `${segment}${separator}${suffix}`);
   }
   return orPattern(parts);
 }
