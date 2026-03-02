@@ -364,34 +364,53 @@ function expandIPv6RowPatterns(row: IPv6HextetRange[]): string[] {
   const patterns = [hextetPatterns.join(":")];
 
   for (let runStart = 0; runStart < 8; runStart += 1) {
-    for (let runEnd = runStart; runEnd < 8; runEnd += 1) {
-      let canCompress = true;
-      for (let i = runStart; i <= runEnd; i += 1) {
-        if (!(row[i].start <= 0 && row[i].end >= 0)) {
-          canCompress = false;
-          break;
-        }
-      }
-      if (!canCompress) {
-        continue;
-      }
-
-      const left = hextetPatterns.slice(0, runStart).join(":");
-      const right = hextetPatterns.slice(runEnd + 1).join(":");
-
-      if (left.length === 0 && right.length === 0) {
-        patterns.push("::");
-      } else if (left.length === 0) {
-        patterns.push(`::${right}`);
-      } else if (right.length === 0) {
-        patterns.push(`${left}::`);
-      } else {
-        patterns.push(`${left}::${right}`);
-      }
+    if (row[runStart].start !== 0) {
+      continue;
     }
+
+    let maxRunEnd = runStart;
+    while (maxRunEnd + 1 < 8 && row[maxRunEnd + 1].start === 0) {
+      maxRunEnd += 1;
+    }
+
+    const left = hextetPatterns.slice(0, runStart).join(":");
+    const rights: string[] = [];
+    for (let runEnd = runStart; runEnd <= maxRunEnd; runEnd += 1) {
+      rights.push(hextetPatterns.slice(runEnd + 1).join(":"));
+    }
+    patterns.push(buildIPv6CompressionPattern(left, rights));
   }
 
   return uniquePatterns(patterns);
+}
+
+function buildIPv6CompressionPattern(left: string, rights: string[]): string {
+  const uniqueRights = uniquePatterns(rights);
+  const prefix = left.length === 0 ? "::" : `${left}::`;
+
+  if (uniqueRights.length === 1) {
+    return `${prefix}${uniqueRights[0]}`;
+  }
+
+  let hasEmpty = false;
+  const nonEmpty: string[] = [];
+  for (const right of uniqueRights) {
+    if (right.length === 0) {
+      hasEmpty = true;
+    } else {
+      nonEmpty.push(right);
+    }
+  }
+
+  if (nonEmpty.length === 0) {
+    return prefix;
+  }
+
+  let rightPattern = orPattern(nonEmpty);
+  if (hasEmpty) {
+    rightPattern = `(?:${rightPattern})?`;
+  }
+  return `${prefix}${rightPattern}`;
 }
 
 function hextetTextPattern(start: number, end: number): string {
