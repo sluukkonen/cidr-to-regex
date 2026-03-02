@@ -34,6 +34,9 @@ describe("cidrToRegex contract", () => {
       "10.0.0.1/33",
       "300.0.0.1/24",
       "10.0.256.1/24",
+      "10.16777216/24",
+      "10.1.65536/24",
+      "4294967296/24",
       "010.000.256.001/24",
       "10.0.0.1/abc",
       "2001:db8::1/64/32",
@@ -147,6 +150,21 @@ describe("cidrToRegex contract", () => {
         "0001:0000:0000:0000:0000:0000:0000:0000",
       ]);
       expect(matchesAny(left, "::ff")).toBe(false);
+    });
+
+    it("accepts inet_aton-style IPv4 shorthand CIDR input", () => {
+      const onePart = compile("167772161/32", { anchored: true });
+      const twoPart = compile("10.1/32", { anchored: true });
+      const threePart = compile("10.0.1/32", { anchored: true });
+      const canonical = "10.0.0.1";
+
+      expect(matchesAny(onePart, canonical)).toBe(true);
+      expect(matchesAny(twoPart, canonical)).toBe(true);
+      expect(matchesAny(threePart, canonical)).toBe(true);
+
+      expect(matchesAny(onePart, "10.0.0.2")).toBe(false);
+      expect(matchesAny(twoPart, "10.0.0.2")).toBe(false);
+      expect(matchesAny(threePart, "10.0.0.2")).toBe(false);
     });
   });
 

@@ -93,7 +93,7 @@ function parseCidr(input: string): ParsedCidr {
   return { family: "ipv4", address, prefix };
 }
 
-function parseIPv4(text: string): bigint | null {
+function parseIPv4DottedQuad(text: string): bigint | null {
   const parts = text.split(".");
   if (parts.length !== 4) {
     return null;
@@ -114,7 +114,44 @@ function parseIPv4(text: string): bigint | null {
   return value;
 }
 
+function parseIPv4(text: string): bigint | null {
+  const parts = text.split(".");
+  if (parts.length === 0 || parts.length > 4) {
+    return null;
+  }
+
+  if (parts.length === 4) {
+    return parseIPv4DottedQuad(text);
+  }
+
+  if (parts.length === 1) {
+    const value = parseUintDecimal(parts[0], 0xffffffff);
+    return value === null ? null : BigInt(value);
+  }
+
+  if (parts.length === 2) {
+    const first = parseUintDecimal(parts[0], 255);
+    const rest = parseUintDecimal(parts[1], 0xffffff);
+    if (first === null || rest === null) {
+      return null;
+    }
+    return (BigInt(first) << 24n) | BigInt(rest);
+  }
+
+  const first = parseUintDecimal(parts[0], 255);
+  const second = parseUintDecimal(parts[1], 255);
+  const rest = parseUintDecimal(parts[2], 0xffff);
+  if (first === null || second === null || rest === null) {
+    return null;
+  }
+  return (BigInt(first) << 24n) | (BigInt(second) << 16n) | BigInt(rest);
+}
+
 function parseByte(part: string): number | null {
+  return parseUintDecimal(part, 255);
+}
+
+function parseUintDecimal(part: string, max: number): number | null {
   if (part.length === 0) {
     return null;
   }
@@ -126,10 +163,11 @@ function parseByte(part: string): number | null {
       return null;
     }
     value = value * 10 + (code - 48);
-    if (value > 255) {
+    if (value > max) {
       return null;
     }
   }
+
   return value;
 }
 
@@ -201,7 +239,7 @@ function expandEmbeddedIPv4(text: string): string {
     return "";
   }
 
-  const ipv4 = parseIPv4(ipv4Part);
+  const ipv4 = parseIPv4DottedQuad(ipv4Part);
   if (ipv4 === null) {
     return "";
   }

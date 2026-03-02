@@ -30,7 +30,7 @@ type CidrToRegexOptions = {
 ```
 
 - Accepts IPv4 and IPv6 CIDR input.
-- CIDR parsing is liberal (for example compressed IPv6 like `::ff/16` is accepted).
+- CIDR parsing is liberal (for example compressed IPv6 like `::ff/16` and IPv4 `inet_aton` shorthands like `10.1/32` are accepted).
 - CIDR network bits are normalized (host bits in the input address are ignored).
 - By default, returned regex is not full-string anchored.
 - `options.anchored` controls whether `^...$` anchors are included.
