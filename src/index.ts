@@ -7,6 +7,7 @@ type IPv6HextetRange = { start: number; end: number };
 const IPV4_BITS = 32;
 const IPV6_BITS = 128;
 const IPV6_MINIMIZE_THRESHOLD = 80;
+const IPV6_ANY_HEXTET = "[0-9a-f]{1,4}";
 
 const IPV4_ANY_OCTET = "(?:0|[1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-5])";
 const HEX_DIGITS = "0123456789abcdef";
@@ -35,7 +36,7 @@ export function cidrToRegex(cidr: string, options?: CidrToRegexOptions): RegExp 
   const rawPatterns = buildIPv6TextPatterns(startHextets, endHextets);
   const patterns =
     rawPatterns.length >= IPV6_MINIMIZE_THRESHOLD
-      ? minimizeIPv6PatternSet(rawPatterns)
+      ? factorIPv6AnyHextetRuns(minimizeIPv6PatternSet(rawPatterns))
       : rawPatterns;
   return buildRegex(patterns, "ipv6", anchored, global, ignoreCase);
 }
@@ -502,9 +503,84 @@ function minimizeIPv6PatternSet(patterns: string[]): string[] {
 
   const minimized: string[] = [];
   for (const [segmentCount, segmentPatterns] of grouped.entries()) {
-    minimized.push(...minimizePatternSet(segmentPatterns, ":", segmentCount));
+    minimized.push(...minimizePatternSetOnePass(segmentPatterns, ":", segmentCount));
   }
   return uniquePatterns(minimized);
+}
+
+function minimizePatternSetOnePass(
+  patterns: string[],
+  separator: string,
+  segmentCount: number,
+): string[] {
+  if (patterns.length <= 1) {
+    return patterns;
+  }
+
+  let rows = uniquePatternRows(
+    patterns.map((pattern) => splitPattern(pattern, separator, segmentCount)),
+  );
+
+  for (let index = 0; index < segmentCount; index += 1) {
+    const grouped = new Map<string, { template: string[]; variants: string[] }>();
+
+    for (const row of rows) {
+      const keyParts = row.slice();
+      keyParts[index] = "\u0000";
+      const key = keyParts.join("\u0001");
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.variants.push(row[index]);
+      } else {
+        grouped.set(key, { template: row.slice(), variants: [row[index]] });
+      }
+    }
+
+    const mergedRows: string[][] = [];
+    for (const entry of grouped.values()) {
+      const variants = uniquePatterns(entry.variants);
+      const merged = variants.length === 1 ? variants[0] : orPattern(variants);
+      const next = entry.template.slice();
+      next[index] = merged;
+      mergedRows.push(next);
+    }
+
+    rows = uniquePatternRows(mergedRows);
+  }
+
+  return rows.map((row) => row.join(separator));
+}
+
+function factorIPv6AnyHextetRuns(patterns: string[]): string[] {
+  return uniquePatterns(patterns.map((pattern) => factorIPv6AnyHextetRunsInPattern(pattern)));
+}
+
+function factorIPv6AnyHextetRunsInPattern(pattern: string): string {
+  const segments = pattern.split(":");
+  const out: string[] = [];
+
+  let index = 0;
+  while (index < segments.length) {
+    if (segments[index] !== IPV6_ANY_HEXTET) {
+      out.push(segments[index]);
+      index += 1;
+      continue;
+    }
+
+    let end = index + 1;
+    while (end < segments.length && segments[end] === IPV6_ANY_HEXTET) {
+      end += 1;
+    }
+    const runLength = end - index;
+    if (runLength === 1) {
+      out.push(IPV6_ANY_HEXTET);
+    } else {
+      out.push(`${IPV6_ANY_HEXTET}(?::${IPV6_ANY_HEXTET}){${runLength - 1}}`);
+    }
+    index = end;
+  }
+
+  return out.join(":");
 }
 
 function countTopLevelSegments(pattern: string, separator: string): number {
