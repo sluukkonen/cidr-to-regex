@@ -404,9 +404,31 @@ function hextetTextPattern(start: number, end: number): string {
     const upperEnd = end >> 12;
     const upperPattern = `${hexDigitRange(upperStart, upperEnd)}[0-9a-f]{3}`;
     if (upperStart === 0) {
-      return orPattern(["[0-9a-f]{1,3}", upperPattern]);
+      return `${hexDigitRange(0, upperEnd)}?[0-9a-f]{1,3}`;
     }
     return upperPattern;
+  }
+
+  if (start === 0 && end <= 0x0fff && (end & 0x00ff) === 0x00ff) {
+    const upper = end >> 8;
+    return `0?${hexDigitRange(0, upper)}?[0-9a-f]{1,2}`;
+  }
+
+  if (start === 0 && end <= 0xff && (end & 0x000f) === 0x000f) {
+    const upper = end >> 4;
+    return `0{0,2}${hexDigitRange(0, upper)}?[0-9a-f]`;
+  }
+
+  if (start === 0 && end <= 0x0fff) {
+    if (end <= 0x0f) {
+      return `0{0,3}${hexDigitRange(0, end)}`;
+    }
+    if (end <= 0xff) {
+      const twoDigit = orPattern(hexRangeParts("00", end.toString(16).padStart(2, "0")));
+      return orPattern(["[0-9a-f]", `0{0,2}${twoDigit}`]);
+    }
+    const threeDigit = orPattern(hexRangeParts("000", end.toString(16).padStart(3, "0")));
+    return orPattern(["[0-9a-f]{1,2}", `0?${threeDigit}`]);
   }
 
   const parts: string[] = [];
