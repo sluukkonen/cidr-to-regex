@@ -2,11 +2,12 @@ type ParsedCidr =
   | { family: "ipv4"; address: bigint; prefix: number }
   | { family: "ipv6"; address: bigint; prefix: number };
 
+type IPv6HextetRange = { start: number; end: number };
+
 const IPV4_BITS = 32;
 const IPV6_BITS = 128;
 
 const IPV4_ANY_OCTET = "(?:0|[1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-5])";
-const IPV6_ANY_HEXTET = "[0-9a-f]{4}";
 const HEX_DIGITS = "0123456789abcdef";
 
 export type CidrToRegexOptions = {
@@ -30,7 +31,7 @@ export function cidrToRegex(cidr: string, options?: CidrToRegexOptions): RegExp 
   const [start, end] = normalizeRange(parsed.address, IPV6_BITS, parsed.prefix);
   const startHextets = ipv6ToHextets(start);
   const endHextets = ipv6ToHextets(end);
-  const patterns = minimizePatternSet(buildIPv6Patterns(startHextets, endHextets, 0), ":", 8);
+  const patterns = buildIPv6TextPatterns(startHextets, endHextets);
   return buildRegex(patterns, "ipv6", anchored, global, ignoreCase);
 }
 
@@ -343,44 +344,45 @@ function buildIPv4Patterns(start: number[], end: number[], index: number): strin
   return uniquePatterns(patterns);
 }
 
-function buildIPv6Patterns(start: number[], end: number[], index: number): string[] {
+function buildIPv6TextPatterns(start: number[], end: number[]): string[] {
+  const rows = buildIPv6Rows(start, end, 0);
+  return uniquePatterns(rows.flatMap((row) => expandIPv6RowPatterns(row)));
+}
+
+function buildIPv6Rows(start: number[], end: number[], index: number): IPv6HextetRange[][] {
   if (index === 8) {
-    return [""];
+    return [[]];
   }
   if (isFullRange(start, end, index, 0, 0xffff)) {
-    return [ipv6AnySuffix(8 - index)];
+    return [ipv6FullRangeRow(8 - index)];
   }
 
   const low = start[index];
   const high = end[index];
 
   if (low === high) {
-    return combineWithSuffix(
-      hextetRangePattern(low, high),
-      buildIPv6Patterns(start, end, index + 1),
-      ":",
+    return combineIPv6RangeWithSuffix(
+      { start: low, end: high },
+      buildIPv6Rows(start, end, index + 1),
     );
   }
 
-  const patterns: string[] = [];
+  const rows: IPv6HextetRange[][] = [];
 
   const firstEnd = start.slice();
   firstEnd[index] = low;
   for (let i = index + 1; i < 8; i += 1) {
     firstEnd[i] = 0xffff;
   }
-  patterns.push(
-    ...combineWithSuffix(
-      hextetRangePattern(low, low),
-      buildIPv6Patterns(start, firstEnd, index + 1),
-      ":",
+  rows.push(
+    ...combineIPv6RangeWithSuffix(
+      { start: low, end: low },
+      buildIPv6Rows(start, firstEnd, index + 1),
     ),
   );
 
   if (low + 1 <= high - 1) {
-    const middle = hextetRangePattern(low + 1, high - 1);
-    const suffix = ipv6AnySuffix(8 - index - 1);
-    patterns.push(suffix ? `${middle}:${suffix}` : middle);
+    rows.push([{ start: low + 1, end: high - 1 }, ...ipv6FullRangeRow(8 - index - 1)]);
   }
 
   const lastStart = end.slice();
@@ -388,15 +390,97 @@ function buildIPv6Patterns(start: number[], end: number[], index: number): strin
   for (let i = index + 1; i < 8; i += 1) {
     lastStart[i] = 0;
   }
-  patterns.push(
-    ...combineWithSuffix(
-      hextetRangePattern(high, high),
-      buildIPv6Patterns(lastStart, end, index + 1),
-      ":",
+  rows.push(
+    ...combineIPv6RangeWithSuffix(
+      { start: high, end: high },
+      buildIPv6Rows(lastStart, end, index + 1),
     ),
   );
 
+  return uniqueIPv6Rows(rows);
+}
+
+function combineIPv6RangeWithSuffix(
+  head: IPv6HextetRange,
+  suffixes: IPv6HextetRange[][],
+): IPv6HextetRange[][] {
+  return suffixes.map((suffix) => [head, ...suffix]);
+}
+
+function ipv6FullRangeRow(count: number): IPv6HextetRange[] {
+  const out: IPv6HextetRange[] = [];
+  for (let i = 0; i < count; i += 1) {
+    out.push({ start: 0, end: 0xffff });
+  }
+  return out;
+}
+
+function uniqueIPv6Rows(rows: IPv6HextetRange[][]): IPv6HextetRange[][] {
+  if (rows.length <= 1) {
+    return rows.slice();
+  }
+  const out = new Map<string, IPv6HextetRange[]>();
+  for (const row of rows) {
+    const key = row.map((part) => `${part.start}-${part.end}`).join("|");
+    if (!out.has(key)) {
+      out.set(key, row);
+    }
+  }
+  return [...out.values()];
+}
+
+function expandIPv6RowPatterns(row: IPv6HextetRange[]): string[] {
+  const hextetPatterns = row.map((part) => hextetTextPattern(part.start, part.end));
+  const patterns = [hextetPatterns.join(":")];
+
+  for (let runStart = 0; runStart < 8; runStart += 1) {
+    for (let runEnd = runStart; runEnd < 8; runEnd += 1) {
+      let canCompress = true;
+      for (let i = runStart; i <= runEnd; i += 1) {
+        if (!(row[i].start <= 0 && row[i].end >= 0)) {
+          canCompress = false;
+          break;
+        }
+      }
+      if (!canCompress) {
+        continue;
+      }
+
+      const left = hextetPatterns.slice(0, runStart).join(":");
+      const right = hextetPatterns.slice(runEnd + 1).join(":");
+
+      if (left.length === 0 && right.length === 0) {
+        patterns.push("::");
+      } else if (left.length === 0) {
+        patterns.push(`::${right}`);
+      } else if (right.length === 0) {
+        patterns.push(`${left}::`);
+      } else {
+        patterns.push(`${left}::${right}`);
+      }
+    }
+  }
+
   return uniquePatterns(patterns);
+}
+
+function hextetTextPattern(start: number, end: number): string {
+  if (start === 0 && end === 0xffff) {
+    return "[0-9a-f]{1,4}";
+  }
+
+  const parts: string[] = [];
+  for (let width = 1; width <= 4; width += 1) {
+    const max = (1 << (width * 4)) - 1;
+    if (start > max) {
+      continue;
+    }
+    const low = start.toString(16).padStart(width, "0");
+    const high = Math.min(end, max).toString(16).padStart(width, "0");
+    parts.push(orPattern(hexRangeParts(low, high)));
+  }
+
+  return orPattern(parts);
 }
 
 function combineWithSuffix(head: string, suffixes: string[], separator: string): string[] {
@@ -425,13 +509,6 @@ function ipv4AnySuffix(count: number): string {
   return Array<string>(count).fill(IPV4_ANY_OCTET).join("\\.");
 }
 
-function ipv6AnySuffix(count: number): string {
-  if (count <= 0) {
-    return "";
-  }
-  return Array<string>(count).fill(IPV6_ANY_HEXTET).join(":");
-}
-
 function octetRangePattern(start: number, end: number): string {
   if (start === 0 && end === 255) {
     return IPV4_ANY_OCTET;
@@ -445,19 +522,6 @@ function octetRangePattern(start: number, end: number): string {
     parts.push(String(value));
   }
   return orPattern(parts);
-}
-
-function hextetRangePattern(start: number, end: number): string {
-  if (start === 0 && end === 0xffff) {
-    return IPV6_ANY_HEXTET;
-  }
-  if (start === end) {
-    return start.toString(16).padStart(4, "0");
-  }
-
-  const low = start.toString(16).padStart(4, "0");
-  const high = end.toString(16).padStart(4, "0");
-  return orPattern(hexRangeParts(low, high));
 }
 
 function hexRangeParts(low: string, high: string): string[] {

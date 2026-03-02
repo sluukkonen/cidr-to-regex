@@ -89,8 +89,12 @@ describe("cidrToRegex fuzz stress", () => {
       for (const probe of probeSet) {
         const expected = probe >= start && probe <= end;
         const canonical = formatIPv6Canonical(probe);
+        const unpadded = formatIPv6Unpadded(probe);
+        const compressed = formatIPv6Compressed(probe);
         const upper = canonical.toUpperCase();
         expect(matchesAny(regexes, canonical)).toBe(expected);
+        expect(matchesAny(regexes, unpadded)).toBe(expected);
+        expect(matchesAny(regexes, compressed)).toBe(expected);
         expect(matchesAny(regexes, upper)).toBe(expected);
       }
     }
@@ -175,6 +179,13 @@ function formatIPv6Canonical(value: bigint): string {
     );
   }
   return hextets.join(":");
+}
+
+function formatIPv6Unpadded(value: bigint): string {
+  return formatIPv6Canonical(value)
+    .split(":")
+    .map((part) => part.replace(/^0+/, "") || "0")
+    .join(":");
 }
 
 function formatIPv6Compressed(value: bigint): string {

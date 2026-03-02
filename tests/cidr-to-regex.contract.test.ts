@@ -115,17 +115,20 @@ describe("cidrToRegex contract", () => {
     });
   });
 
-  describe("maximal representation only", () => {
+  describe("output representation", () => {
     it("does not match IPv4 shorthand forms", () => {
       const regexes = compile("10.0.0.0/24");
       expect(matchesAny(regexes, "10.0.0.1")).toBe(true);
       expect(matchesAny(regexes, "10.0.1")).toBe(false);
     });
 
-    it("does not match IPv6 compressed forms", () => {
+    it("matches IPv6 compressed and non-padded forms", () => {
       const regexes = compile("2001:0db8:0000:0000:0000:0000:0000:0000/112");
       expect(matchesAny(regexes, "2001:0db8:0000:0000:0000:0000:0000:00ab")).toBe(true);
-      expect(matchesAny(regexes, "2001:db8::ab")).toBe(false);
+      expect(matchesAny(regexes, "2001:db8::ab")).toBe(true);
+      expect(matchesAny(regexes, "2001:db8:0:0:0:0:0:ab")).toBe(true);
+      expect(matchesAny(regexes, "2001:db8:::ab")).toBe(false);
+      expect(matchesAny(regexes, "2001:db8::1:ab")).toBe(false);
     });
   });
 
@@ -149,7 +152,7 @@ describe("cidrToRegex contract", () => {
         "0000:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
         "0001:0000:0000:0000:0000:0000:0000:0000",
       ]);
-      expect(matchesAny(left, "::ff")).toBe(false);
+      expect(matchesAny(left, "::ff")).toBe(true);
     });
 
     it("accepts inet_aton-style IPv4 shorthand CIDR input", () => {
