@@ -37,8 +37,8 @@ type CidrToRegexOptions = {
 - `options.ignoreCase` enables case-insensitive IPv6 matching (adds `i` flag).
 - `options.global` adds the `g` flag to the returned regex.
 - Output matching targets:
-  - IPv4: canonical dotted-decimal (a.b.c.d, no leading zeros).
-  - IPv6: standard hextet forms with 1-4 hex digits per hextet, optional leading zeros, and a single `::` compression run.
+  - IPv4: canonical dotted-decimal (`a.b.c.d`, no leading zeros).
+  - IPv6: canonical RFC 5952 text representation, including IPv4-mapped IPv6 addresses
 
 ## Compatibility
 

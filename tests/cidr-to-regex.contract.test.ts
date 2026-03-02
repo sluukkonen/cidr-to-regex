@@ -130,6 +130,61 @@ describe("cidrToRegex contract", () => {
       expect(matchesAny(regexes, "2001:db8:::ab")).toBe(false);
       expect(matchesAny(regexes, "2001:db8::1:ab")).toBe(false);
     });
+
+    it("matches IPv4 dotted-decimal when CIDR covers mapped range", () => {
+      const regexes = compile("::/0");
+      expect(matchesAny(regexes, "10.0.0.1")).toBe(true);
+      expect(matchesAny(regexes, "255.255.255.255")).toBe(true);
+      expect(matchesAny(regexes, "010.000.000.001")).toBe(false);
+    });
+
+    it("matches only covered IPv4 range for mapped IPv6 subnets", () => {
+      const regexes = compile("::ffff:192.0.2.0/120");
+      expect(matchesAny(regexes, "192.0.2.0")).toBe(true);
+      expect(matchesAny(regexes, "192.0.2.255")).toBe(true);
+      expect(matchesAny(regexes, "192.0.3.0")).toBe(false);
+    });
+  });
+
+  describe("IPv4-mapped IPv6 edge cases", () => {
+    it("handles mapped boundary prefixes /97 and /98", () => {
+      const slash97 = compile("::ffff:0.0.0.0/97");
+      expect(matchesAny(slash97, "0.0.0.0")).toBe(true);
+      expect(matchesAny(slash97, "127.255.255.255")).toBe(true);
+      expect(matchesAny(slash97, "128.0.0.0")).toBe(false);
+
+      const slash98 = compile("::ffff:0.0.0.0/98");
+      expect(matchesAny(slash98, "63.255.255.255")).toBe(true);
+      expect(matchesAny(slash98, "64.0.0.0")).toBe(false);
+    });
+
+    it("handles mapped /128 at both IPv4 extremes", () => {
+      const low = compile("::ffff:0.0.0.0/128", { anchored: true });
+      expect(matchesAny(low, "0.0.0.0")).toBe(true);
+      expect(matchesAny(low, "0.0.0.1")).toBe(false);
+
+      const high = compile("::ffff:255.255.255.255/128", { anchored: true });
+      expect(matchesAny(high, "255.255.255.255")).toBe(true);
+      expect(matchesAny(high, "255.255.255.254")).toBe(false);
+    });
+
+    it("does not emit dotted-IPv4 matching for neighboring non-mapped /96 networks", () => {
+      const beforeMapped = compile("::fffe:0:0/96");
+      const afterMapped = compile("::1:0:0/96");
+      expect(matchesAny(beforeMapped, "10.0.0.1")).toBe(false);
+      expect(matchesAny(afterMapped, "10.0.0.1")).toBe(false);
+    });
+
+    it("respects anchored/global options for mixed mapped+ipv6 regexes", () => {
+      const unanchored = compile("::ffff:192.0.2.0/120");
+      expect(matchesAny(unanchored, "x192.0.2.1y")).toBe(true);
+
+      const anchored = compile("::ffff:192.0.2.0/120", { anchored: true });
+      expect(matchesAny(anchored, "x192.0.2.1y")).toBe(false);
+
+      const global = compile("::ffff:192.0.2.0/120", { global: true, ignoreCase: true });
+      expect(global.flags).toBe("gi");
+    });
   });
 
   describe("liberal CIDR input parsing", () => {

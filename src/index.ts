@@ -9,6 +9,9 @@ const IPV4_BITS = 32;
 const IPV6_BITS = 128;
 const IPV6_MINIMIZE_THRESHOLD = 80;
 const IPV6_ANY_HEXTET = "[0-9a-f]{1,4}";
+const IPV4_MAX = 0xffffffffn;
+const IPV6_MAPPED_IPV4_START = 0xffffn << 32n;
+const IPV6_MAPPED_IPV4_END = IPV6_MAPPED_IPV4_START | IPV4_MAX;
 
 const IPV4_ANY_OCTET = "(?:0|[1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-5])";
 const HEX_DIGITS = "0123456789abcdef";
@@ -35,26 +38,35 @@ export function cidrToRegex(cidr: string, options?: CidrToRegexOptions): RegExp 
   const startHextets = ipv6ToHextets(start);
   const endHextets = ipv6ToHextets(end);
   const rawPatterns = buildIPv6TextPatterns(startHextets, endHextets);
-  const patterns =
+  const ipv6Patterns =
     rawPatterns.length >= IPV6_MINIMIZE_THRESHOLD
       ? factorIPv6SegmentTrie(factorIPv6AnyHextetRuns(minimizeIPv6PatternSet(rawPatterns)))
       : rawPatterns;
-  return buildRegex(patterns, "ipv6", anchored, global, ignoreCase);
+  const mappedIPv4Patterns = buildIPv4MappedPatterns(start, end);
+  if (mappedIPv4Patterns.length === 0) {
+    return buildRegex(ipv6Patterns, "ipv6", anchored, global, ignoreCase);
+  }
+
+  return buildRegex(
+    uniquePatterns([...ipv6Patterns, ...mappedIPv4Patterns]),
+    "mixed",
+    anchored,
+    global,
+    ignoreCase,
+  );
 }
 
 function buildRegex(
   patterns: string[],
-  family: "ipv4" | "ipv6",
+  family: "ipv4" | "ipv6" | "mixed",
   anchored: boolean,
   global: boolean,
   ignoreCase: boolean,
 ): RegExp {
   const core = orPattern(patterns);
-  const source = anchored
-    ? `^${core}$`
-    : family === "ipv4"
-      ? `(?<![0-9.])${core}(?![0-9.])`
-      : `(?<![0-9A-Fa-f:])${core}(?![0-9A-Fa-f:])`;
+  const boundaryClass =
+    family === "ipv4" ? "[0-9.]" : family === "ipv6" ? "[0-9A-Fa-f:]" : "[0-9A-Fa-f:.]";
+  const source = anchored ? `^${core}$` : `(?<!${boundaryClass})${core}(?!${boundaryClass})`;
   const flags = `${global ? "g" : ""}${ignoreCase ? "i" : ""}`;
   return new RegExp(source, flags);
 }
@@ -357,6 +369,20 @@ function buildIPv6TextPatterns(start: number[], end: number[]): string[] {
     row.push({ start: start[i], end: end[i] });
   }
   return uniquePatterns(expandIPv6RowPatterns(row));
+}
+
+function buildIPv4MappedPatterns(start: bigint, end: bigint): string[] {
+  const overlapStart = start > IPV6_MAPPED_IPV4_START ? start : IPV6_MAPPED_IPV4_START;
+  const overlapEnd = end < IPV6_MAPPED_IPV4_END ? end : IPV6_MAPPED_IPV4_END;
+  if (overlapStart > overlapEnd) {
+    return [];
+  }
+
+  const ipv4Start = overlapStart - IPV6_MAPPED_IPV4_START;
+  const ipv4End = overlapEnd - IPV6_MAPPED_IPV4_START;
+  const startOctets = ipv4ToOctets(ipv4Start);
+  const endOctets = ipv4ToOctets(ipv4End);
+  return minimizePatternSet(buildIPv4Patterns(startOctets, endOctets, 0), "\\.", 4);
 }
 
 function expandIPv6RowPatterns(row: IPv6HextetRange[]): string[] {
