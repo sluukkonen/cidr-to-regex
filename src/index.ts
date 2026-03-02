@@ -399,6 +399,16 @@ function hextetTextPattern(start: number, end: number): string {
     return "[0-9a-f]{1,4}";
   }
 
+  if ((start & 0x0fff) === 0 && (end & 0x0fff) === 0x0fff) {
+    const upperStart = start >> 12;
+    const upperEnd = end >> 12;
+    const upperPattern = `${hexDigitRange(upperStart, upperEnd)}[0-9a-f]{3}`;
+    if (upperStart === 0) {
+      return orPattern(["[0-9a-f]{1,3}", upperPattern]);
+    }
+    return upperPattern;
+  }
+
   const parts: string[] = [];
   for (let width = 1; width <= 4; width += 1) {
     const max = (1 << (width * 4)) - 1;
