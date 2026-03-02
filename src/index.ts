@@ -367,21 +367,39 @@ function expandIPv6RowPatterns(row: IPv6HextetRange[]): string[] {
     if (row[runStart].start !== 0) {
       continue;
     }
+    if (runStart > 0 && isGuaranteedZeroIPv6RangePart(row[runStart - 1])) {
+      continue;
+    }
 
     let maxRunEnd = runStart;
     while (maxRunEnd + 1 < 8 && row[maxRunEnd + 1].start === 0) {
       maxRunEnd += 1;
     }
 
+    const minRunEnd = runStart + 1; // RFC 5952: do not compress a single 0 field.
+    if (maxRunEnd < minRunEnd) {
+      continue;
+    }
+
     const left = hextetPatterns.slice(0, runStart).join(":");
     const rights: string[] = [];
-    for (let runEnd = runStart; runEnd <= maxRunEnd; runEnd += 1) {
+    for (let runEnd = minRunEnd; runEnd <= maxRunEnd; runEnd += 1) {
+      if (runEnd < 7 && isGuaranteedZeroIPv6RangePart(row[runEnd + 1])) {
+        continue;
+      }
       rights.push(hextetPatterns.slice(runEnd + 1).join(":"));
+    }
+    if (rights.length === 0) {
+      continue;
     }
     patterns.push(buildIPv6CompressionPattern(left, rights));
   }
 
   return uniquePatterns(patterns);
+}
+
+function isGuaranteedZeroIPv6RangePart(part: IPv6HextetRange): boolean {
+  return part.start === 0 && part.end === 0;
 }
 
 function buildIPv6CompressionPattern(left: string, rights: string[]): string {
